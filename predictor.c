@@ -67,10 +67,10 @@ int32_t p_last_out = 0;
 
 #define MASK_PC(x) (x & ((1 << n_PCLEN) - 1))
 
-int32_t n_W[(1 << n_PCLEN)][n_HISTORYLEN + 1];
-int32_t n_gHistory;
+int8_t n_W[(1 << n_PCLEN)][n_HISTORYLEN + 1];
+int8_t n_gHistory;
 int32_t n_shiftWeight[n_HISTORYLEN + 1];
-uint32_t n_branches[n_HISTORYLEN];
+uint32_t n_branches[n_HISTORYLEN + 1];
 
 uint8_t n_recentPrediction = NOTTAKEN;
 uint8_t n_needTrain = 0;
@@ -147,7 +147,7 @@ void perceptron_train(uint32_t pc, uint8_t outcome){
 
 //====================== Neural Path-based Predictor ==============================
 
-void neural_shift(int32_t* satuate, uint8_t same){
+void neural_shift(int8_t* satuate, uint8_t same){
   if(same){
     if(*satuate != (1 << (n_SATUATELEN - 1) - 1)){
       (*satuate)++;
@@ -163,25 +163,17 @@ void neural_shift(int32_t* satuate, uint8_t same){
 void neural_path_init(){
   printf("neural: historylen: %d, pclen: %d\n", n_HISTORYLEN, n_PCLEN);
   n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
-  memset(n_W, 0, sizeof(int32_t) * (1 << n_PCLEN) * (n_HISTORYLEN + 1));
+  memset(n_W, 0, sizeof(int8_t) * (1 << n_PCLEN) * (n_HISTORYLEN + 1));
   memset(n_shiftWeight, 0, sizeof(int32_t) * (n_HISTORYLEN + 1));
-  memset(n_branches, 0, sizeof(uint32_t) * (n_HISTORYLEN));
+  memset(n_branches, 0, sizeof(uint32_t) * (n_HISTORYLEN + 1));
   n_gHistory = 0;
 }
 
 uint8_t get_neural_prediction(uint32_t pc){
-
-  int32_t out = n_W[MASK_PC(pc)][0] + n_shiftWeight[n_HISTORYLEN];
-
+  int32_t out = (int32_t)(n_W[MASK_PC(pc)][0]) + n_shiftWeight[n_HISTORYLEN];
   n_recentPrediction = (out >= 0) ? TAKEN : NOTTAKEN;
-  if(out < n_trainTheta && out > -n_trainTheta){
-    n_needTrain = 1;
-  }else{
-    n_needTrain = 0;
-  }
-
+  n_needTrain = (out < n_trainTheta && out > -n_trainTheta) ? 1 : 0;
   return n_recentPrediction;
-
 }
 
 void neural_train(uint32_t pc, uint8_t outcome){
@@ -193,9 +185,9 @@ void neural_train(uint32_t pc, uint8_t outcome){
   n_branches[0] = MASK_PC(pc);
 
   // Update cumulative array
-  for (int i = 1 ; i <= n_HISTORYLEN ; i++ ) {
-			n_shiftWeight[n_HISTORYLEN - i + 1] = n_shiftWeight[n_HISTORYLEN - i] +
-                                            ((outcome == TAKEN) ? n_W[MASK_PC(pc)][i] : -n_W[MASK_PC(pc)][i]);
+  for (int i = n_HISTORYLEN ; i >= 1 ; i-- ) {
+			n_shiftWeight[i] = n_shiftWeight[i - 1] +
+          ((outcome == TAKEN) ? n_W[MASK_PC(pc)][n_HISTORYLEN - i + 1] : -n_W[MASK_PC(pc)][n_HISTORYLEN - i + 1]);
 	}
 	n_shiftWeight[0] = 0;
   // perceptron learning rule
@@ -303,7 +295,6 @@ make_prediction(uint32_t pc)
   //
   //TODO: Implement prediction scheme
   //
-
   if(bpType == STATIC){
     return TAKEN;
 
@@ -314,7 +305,7 @@ make_prediction(uint32_t pc)
     return get_tournament_prediction(pc);
 
   }else if(bpType == CUSTOM){
-    return get_perceptron_prediction(pc);
+    return get_neural_prediction(pc);
   }else{
     return NOTTAKEN;
   }
@@ -331,6 +322,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
   //
   //TODO: Implement Predictor training
   //
+
   if(bpType == TOURNAMENT){
     //////printf("pc: %x\tghistory: %x\tprediction: %d\toutcome: %d \n", pc, ghistory, get_tournament_prediction(pc),outcome);
     uint8_t localPrediction = get_local_prediction(pc);
@@ -364,7 +356,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
       }
       break;
     case CUSTOM:
-      perceptron_train(pc, outcome);
+      //perceptron_train(pc, outcome);
       neural_train(pc, outcome);
     default:
       break;
