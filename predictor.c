@@ -68,7 +68,7 @@ int32_t p_last_out = 0;
 #define MASK_PC(x) (x & ((1 << n_PCLEN) - 1))
 
 int8_t n_W[(1 << n_PCLEN)][n_HISTORYLEN + 1];
-int32_t n_gHistory;
+int32_t n_gHistory[n_HISTORYLEN];
 int32_t n_shiftWeight[n_HISTORYLEN + 1];
 uint32_t n_branches[n_HISTORYLEN + 1];
 
@@ -166,7 +166,7 @@ void neural_path_init(){
   memset(n_W, 0, sizeof(int8_t) * (1 << n_PCLEN) * (n_HISTORYLEN + 1));
   memset(n_shiftWeight, 0, sizeof(int32_t) * (n_HISTORYLEN + 1));
   memset(n_branches, 0, sizeof(uint32_t) * (n_HISTORYLEN + 1));
-  n_gHistory = 0;
+  memset(n_gHistory, 0, sizeof(uint8_t) * n_HISTORYLEN);
 }
 
 uint8_t get_neural_prediction(uint32_t pc){
@@ -195,16 +195,17 @@ void neural_train(uint32_t pc, uint8_t outcome){
 		neural_shift(&(n_W[MASK_PC(pc)][0]), outcome);
     for (int i = 1 ; i <= n_HISTORYLEN ; i++ ) {
   		uint32_t k = MASK_PC(n_branches[i]);
-      uint8_t predict = (n_gHistory & (1 << i-1)) >> (i-1);
+      uint8_t predict = n_gHistory[i-1];
 			neural_shift(&(n_W[k][i]), (outcome == predict));
 		}
 	}
 
 
   // Update global history register
-  n_gHistory <<= 1;
-  n_gHistory = n_gHistory & ((1 << n_HISTORYLEN) - 1);
-  n_gHistory |= outcome;
+  for(int i = n_HISTORYLEN - 1; i > 0 ; i--){
+    n_gHistory[i] = n_gHistory[i-1];
+  }
+  n_gHistory[0] = outcome;
 
 }
 
