@@ -62,7 +62,7 @@ int32_t p_last_out = 0;
 
 // Data for path based neural predictor
 #define n_PCLEN 8
-#define n_HISTORYLEN 28
+#define n_HISTORYLEN 30
 #define n_SATUATELEN 8
 
 #define MASK_PC(x) (x & ((1 << n_PCLEN) - 1))
@@ -199,7 +199,7 @@ void neural_train(uint32_t pc, uint8_t outcome){
 	}
 	n_shiftWeight[0] = 0;
   // perceptron learning rule
-	if (outcome != n_recentPrediction || n_needTrain) {
+	if ((outcome != n_recentPrediction) || n_needTrain) {
 		neural_shift(&(n_W[MASK_PC(pc)][0]), outcome);
     for (int i = 1 ; i <= n_HISTORYLEN ; i++ ) {
   		uint32_t k = MASK_PC(n_branches[i]);
@@ -364,11 +364,8 @@ train_predictor(uint32_t pc, uint8_t outcome)
       }
       break;
     case CUSTOM:
-      // printf("40\n");
-      // custom_train(pc, outcome);
-      // printf("41\n");
       perceptron_train(pc, outcome);
-      //neural_train(pc, outcome);
+      neural_train(pc, outcome);
     default:
       break;
   }
