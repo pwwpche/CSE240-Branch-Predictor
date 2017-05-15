@@ -63,8 +63,13 @@ int32_t p_last_out = 0;
 
 // Data for path based neural predictor
 <<<<<<< HEAD
+<<<<<<< HEAD
 #define n_PCLEN 8
 #define n_HISTORYLEN 30
+=======
+#define n_PCSIZE 128
+#define n_HISTORYLEN 60
+>>>>>>> 7c9edad... Implemented global history array
 =======
 #define n_PCSIZE 128
 #define n_HISTORYLEN 60
@@ -74,7 +79,11 @@ int32_t p_last_out = 0;
 #define MASK_PC(x) (x & ((1 << n_PCLEN) - 1))
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 int8_t n_W[(1 << n_PCLEN)][n_HISTORYLEN + 1];
+=======
+int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
+>>>>>>> 7c9edad... Implemented global history array
 =======
 int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
 >>>>>>> 7c9edad... Implemented global history array
@@ -106,7 +115,11 @@ void perceptron_shift(int8_t* satuate, uint8_t same){
 
 void perceptron_init(){
 <<<<<<< HEAD
+<<<<<<< HEAD
   printf("percep: PC_len: %d\theight: %d\tsatuate_len: %d\n", p_PCLEN, p_HEIGHT, p_SATUATELEN);
+=======
+  printf("percep: PC_size: %d\theight: %d\tsatuate_len: %d\n", p_PCSIZE, p_HEIGHT, p_SATUATELEN);
+>>>>>>> 7c9edad... Implemented global history array
 =======
   printf("percep: PC_size: %d\theight: %d\tsatuate_len: %d\n", p_PCSIZE, p_HEIGHT, p_SATUATELEN);
 >>>>>>> 7c9edad... Implemented global history array
@@ -178,9 +191,15 @@ void neural_shift(int16_t* satuate, uint8_t same){
 
 void neural_path_init(){
 <<<<<<< HEAD
+<<<<<<< HEAD
   printf("neural: historylen: %d, pclen: %d\n", n_HISTORYLEN, n_PCLEN);
   n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
   memset(n_W, 0, sizeof(int8_t) * (1 << n_PCLEN) * (n_HISTORYLEN + 1));
+=======
+  printf("neural: historylen: %d, PCSIZE: %d, saturate=%d\n", n_HISTORYLEN, n_PCSIZE, n_SATUATELEN);
+  n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
+  memset(n_W, 0, sizeof(int16_t) * n_PCSIZE * (n_HISTORYLEN + 1));
+>>>>>>> 7c9edad... Implemented global history array
 =======
   printf("neural: historylen: %d, PCSIZE: %d, saturate=%d\n", n_HISTORYLEN, n_PCSIZE, n_SATUATELEN);
   n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
@@ -264,6 +283,7 @@ init_predictor()
       return ;
     case TOURNAMENT:
 <<<<<<< HEAD
+<<<<<<< HEAD
         localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
         localPHT = malloc((1 << pcIndexBits)  * sizeof(uint32_t));
         choicePT = malloc((1 << pcIndexBits)  * sizeof(uint8_t));
@@ -275,6 +295,18 @@ init_predictor()
       ghistory = 0;
       gshareBHT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
       memset(gshareBHT, 1, (1 << ghistoryBits) * sizeof(uint8_t));
+=======
+      localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
+      localPHT = malloc((1 << pcIndexBits)  * sizeof(uint32_t));
+      choicePT = malloc((1 << pcIndexBits)  * sizeof(uint8_t));
+      memset(localBHT, WN, (1 << lhistoryBits) * sizeof(uint8_t));
+      memset(localPHT, 0, (1 << pcIndexBits) * sizeof(uint32_t));
+      memset(choicePT, WN, (1 << pcIndexBits) * sizeof(uint8_t));
+    case GSHARE:
+      ghistory = 0;
+      gshareBHT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
+      memset(gshareBHT, WN, (1 << ghistoryBits) * sizeof(uint8_t));
+>>>>>>> 7c9edad... Implemented global history array
 =======
       localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
       localPHT = malloc((1 << pcIndexBits)  * sizeof(uint32_t));
@@ -366,6 +398,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
   uint32_t localPHTIndex = pc & ((1 << pcIndexBits) - 1);
   if(bpType == TOURNAMENT){
 <<<<<<< HEAD
+<<<<<<< HEAD
     //////printf("pc: %x\tghistory: %x\tprediction: %d\toutcome: %d \n", pc, ghistory, get_tournament_prediction(pc),outcome);
     uint8_t localPrediction = get_local_prediction(pc);
     uint8_t gsharePrediction = get_gshare_prediction(pc);
@@ -375,6 +408,10 @@ train_predictor(uint32_t pc, uint8_t outcome)
       }else{
         shift_prediction(&choicePT[pc & ((1 << pcIndexBits) - 1)], NOTTAKEN);
       }
+=======
+    if(localOutcome != globalOutcome){
+      shift_prediction(&choicePT[localPHTIndex], (localOutcome == outcome) ? TAKEN : NOTTAKEN);
+>>>>>>> 7c9edad... Implemented global history array
 =======
     if(localOutcome != globalOutcome){
       shift_prediction(&choicePT[localPHTIndex], (localOutcome == outcome) ? TAKEN : NOTTAKEN);
