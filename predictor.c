@@ -68,6 +68,7 @@ int32_t p_last_out = 0;
 
 #define MASK_PC(x) (x % n_PCSIZE)
 
+
 int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
 int32_t n_gHistory[n_HISTORYLEN];
 int32_t n_shiftWeight[n_HISTORYLEN + 1];
@@ -331,6 +332,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
   //TODO: Implement Predictor training
   //
   uint32_t localPHTIndex = pc & ((1 << pcIndexBits) - 1);
+
   if(bpType == TOURNAMENT){
     if(localOutcome != globalOutcome){
       shift_prediction(&choicePT[localPHTIndex], (localOutcome == outcome) ? TAKEN : NOTTAKEN);
