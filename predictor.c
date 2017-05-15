@@ -48,9 +48,9 @@ uint8_t* globalBHT;
 uint8_t localOutcome, globalOutcome;
 
 // Data for path based neural predictor
-#define n_PCSIZE 460
-#define n_HISTORYLEN 20
-#define n_SATUATELEN 7
+#define n_PCSIZE 399
+#define n_HISTORYLEN 19
+#define n_SATUATELEN 8
 
 #define MASK_PC(x) (x % n_PCSIZE)
 
@@ -105,7 +105,6 @@ uint8_t get_neural_prediction(uint32_t pc){
 
 void neural_train(uint32_t pc, uint8_t outcome){
 
-
   // Add this branch pc to branch history list
   for(int i = n_HISTORYLEN; i >= 1 ; i--){
     n_branches[i] = n_branches[i - 1];
@@ -151,6 +150,7 @@ void shift_prediction(uint8_t* satuate, uint8_t outcome){
   }
 }
 
+
 uint8_t get_gshare_prediction(uint32_t pc){
   uint32_t gBHTIndex = (ghistory ^ pc) & ((1 << ghistoryBits) - 1);
   uint8_t gPrediction = gshareBHT[gBHTIndex];
@@ -179,10 +179,11 @@ uint8_t get_tournament_prediction(uint32_t pc){
   get_local_prediction(pc);
 
   if(predictor == WN || predictor == SN){     // Negtive means global predictor
-    return localOutcome;
-  }else{                                      // Positive means local predictor
     return globalOutcome;
+  }else{                                      // Positive means local predictor
+    return localOutcome;
   }
+
 }
 
 void tournament_init(){
@@ -201,7 +202,7 @@ void tournament_init(){
 void tournament_update(uint32_t pc, uint8_t outcome){
   if(localOutcome != globalOutcome){
     shift_prediction(&choicePT[globalhistory],
-                                (localOutcome == outcome) ? NOTTAKEN : TAKEN
+                                (localOutcome == outcome) ? TAKEN : NOTTAKEN
                     );
   }
   uint32_t localPHTIndex = pc & ((1 << pcIndexBits) - 1);
@@ -239,6 +240,7 @@ init_predictor()
       memset(gshareBHT, WN, (1 << ghistoryBits) * sizeof(uint8_t));
       break;
     case CUSTOM:
+
       neural_path_init();
     default:
       break;
