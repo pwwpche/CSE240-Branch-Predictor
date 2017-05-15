@@ -37,22 +37,23 @@ int verbose;
 //
 //TODO: Add your own Branch Predictor data structures here
 //
-uint8_t ghistory;
+uint32_t ghistory;
 uint8_t* gshareBHT;
 
 uint32_t* localPHT;
 uint8_t* localBHT;
 uint8_t* choicePT;
+uint8_t localOutcome, globalOutcome;
 
 // Data for perceptron predictor
 
 // Notice: PCLEN usually should be smaller than 16.
-#define p_PCLEN 8
-#define p_HEIGHT 30
+#define p_PCSIZE 128
+#define p_HEIGHT 60
 #define p_SATUATELEN 8
 
-int8_t p_W[(1 << p_PCLEN)][p_HEIGHT + 1];
-int32_t p_gHistory;
+int8_t p_W[p_PCSIZE][p_HEIGHT + 1];
+int32_t p_gHistory[p_HEIGHT];
 int32_t p_train_theta;
 uint8_t p_recent_prediction = NOTTAKEN;
 uint8_t p_need_train = 0;
@@ -61,13 +62,22 @@ int32_t p_last_out = 0;
 
 
 // Data for path based neural predictor
+<<<<<<< HEAD
 #define n_PCLEN 8
 #define n_HISTORYLEN 30
+=======
+#define n_PCSIZE 128
+#define n_HISTORYLEN 60
+>>>>>>> 7c9edad... Implemented global history array
 #define n_SATUATELEN 8
 
 #define MASK_PC(x) (x & ((1 << n_PCLEN) - 1))
 
+<<<<<<< HEAD
 int8_t n_W[(1 << n_PCLEN)][n_HISTORYLEN + 1];
+=======
+int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
+>>>>>>> 7c9edad... Implemented global history array
 int32_t n_gHistory[n_HISTORYLEN];
 int32_t n_shiftWeight[n_HISTORYLEN + 1];
 uint32_t n_branches[n_HISTORYLEN + 1];
@@ -95,21 +105,24 @@ void perceptron_shift(int8_t* satuate, uint8_t same){
 }
 
 void perceptron_init(){
+<<<<<<< HEAD
   printf("percep: PC_len: %d\theight: %d\tsatuate_len: %d\n", p_PCLEN, p_HEIGHT, p_SATUATELEN);
+=======
+  printf("percep: PC_size: %d\theight: %d\tsatuate_len: %d\n", p_PCSIZE, p_HEIGHT, p_SATUATELEN);
+>>>>>>> 7c9edad... Implemented global history array
   p_train_theta = (int32_t)(1.93 * p_HEIGHT + 14);
-  memset(p_W, 0, sizeof(int8_t) * (1 << p_PCLEN) * (p_HEIGHT + 1));
-  p_gHistory = 0;
+  memset(p_W, 0, sizeof(int8_t) * p_PCSIZE * (p_HEIGHT + 1));
+  memset(p_gHistory, 0, sizeof(uint8_t) * p_HEIGHT);
 }
 
 
 
 uint8_t get_perceptron_prediction(uint32_t pc){
-  uint32_t index = pc & ((1 << p_PCLEN) - 1);
+  uint32_t index = pc & (p_PCSIZE - 1);
   int16_t out = p_W[index][0];
 
   for(int i = 1 ; i <= p_HEIGHT ; i++){
-    out += (p_gHistory & (1 << i - 1)) ?
-          p_W[index][i] : -p_W[index][i];
+    out += p_gHistory[i-1] ? p_W[index][i] : -p_W[index][i];
   }
 
   if(out >= 0){
@@ -129,25 +142,28 @@ uint8_t get_perceptron_prediction(uint32_t pc){
 
 void perceptron_train(uint32_t pc, uint8_t outcome){
 
-  uint32_t index = pc & ((1 << p_PCLEN) - 1);
+  uint32_t index = pc & (p_PCSIZE - 1);
 
   if((p_recent_prediction != outcome) || p_need_train){
     perceptron_shift(&(p_W[index][0]), outcome);
     for(int i = 1 ; i <= p_HEIGHT ; i++){
-      uint8_t predict = (p_gHistory & (1 << i-1)) >> (i-1);
+      uint8_t predict = p_gHistory[i-1];
       perceptron_shift(&(p_W[index][i]), (outcome == predict));
     }
   }
-  p_gHistory <<= 1;
-  p_gHistory = p_gHistory & ((1 << p_HEIGHT) - 1);
-  p_gHistory |= outcome;
+
+  for(int i = p_HEIGHT - 1; i > 0 ; i--){
+    p_gHistory[i] = p_gHistory[i-1];
+  }
+  p_gHistory[0] = outcome;
+
 }
 //====================== end of Perceptron Predictor ==============================
 
 
 //====================== Neural Path-based Predictor ==============================
 
-void neural_shift(int8_t* satuate, uint8_t same){
+void neural_shift(int16_t* satuate, uint8_t same){
   if(same){
     if(*satuate != (1 << (n_SATUATELEN - 1) - 1)){
       (*satuate)++;
@@ -161,9 +177,15 @@ void neural_shift(int8_t* satuate, uint8_t same){
 
 
 void neural_path_init(){
+<<<<<<< HEAD
   printf("neural: historylen: %d, pclen: %d\n", n_HISTORYLEN, n_PCLEN);
   n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
   memset(n_W, 0, sizeof(int8_t) * (1 << n_PCLEN) * (n_HISTORYLEN + 1));
+=======
+  printf("neural: historylen: %d, PCSIZE: %d, saturate=%d\n", n_HISTORYLEN, n_PCSIZE, n_SATUATELEN);
+  n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
+  memset(n_W, 0, sizeof(int16_t) * n_PCSIZE * (n_HISTORYLEN + 1));
+>>>>>>> 7c9edad... Implemented global history array
   memset(n_shiftWeight, 0, sizeof(int32_t) * (n_HISTORYLEN + 1));
   memset(n_branches, 0, sizeof(uint32_t) * (n_HISTORYLEN + 1));
   memset(n_gHistory, 0, sizeof(uint8_t) * n_HISTORYLEN);
@@ -176,7 +198,10 @@ uint8_t get_neural_prediction(uint32_t pc){
   return n_recentPrediction;
 }
 
+
+
 void neural_train(uint32_t pc, uint8_t outcome){
+
 
   // Add this branch pc to branch history list
   for(int i = n_HISTORYLEN; i >= 1 ; i--){
@@ -238,6 +263,7 @@ init_predictor()
     case STATIC:
       return ;
     case TOURNAMENT:
+<<<<<<< HEAD
         localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
         localPHT = malloc((1 << pcIndexBits)  * sizeof(uint32_t));
         choicePT = malloc((1 << pcIndexBits)  * sizeof(uint8_t));
@@ -249,9 +275,21 @@ init_predictor()
       ghistory = 0;
       gshareBHT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
       memset(gshareBHT, 1, (1 << ghistoryBits) * sizeof(uint8_t));
+=======
+      localBHT = malloc((1 << lhistoryBits) * sizeof(uint8_t));
+      localPHT = malloc((1 << pcIndexBits)  * sizeof(uint32_t));
+      choicePT = malloc((1 << pcIndexBits)  * sizeof(uint8_t));
+      memset(localBHT, WN, (1 << lhistoryBits) * sizeof(uint8_t));
+      memset(localPHT, 0, (1 << pcIndexBits) * sizeof(uint32_t));
+      memset(choicePT, WN, (1 << pcIndexBits) * sizeof(uint8_t));
+    case GSHARE:
+      ghistory = 0;
+      gshareBHT = malloc((1 << ghistoryBits) * sizeof(uint8_t));
+      memset(gshareBHT, WN, (1 << ghistoryBits) * sizeof(uint8_t));
+>>>>>>> 7c9edad... Implemented global history array
       break;
     case CUSTOM:
-      perceptron_init();
+      //perceptron_init();
       neural_path_init();
     default:
       break;
@@ -266,13 +304,15 @@ uint8_t get_local_prediction(uint32_t pc){
   uint32_t localPHTIndex = pc & ((1 << pcIndexBits) - 1);
   uint32_t localBHTIndex = localPHT[localPHTIndex] & ((1 << lhistoryBits) - 1);
   uint8_t localPrediction = localBHT[localBHTIndex];
-  return (localPrediction == WN || localPrediction == SN) ? NOTTAKEN : TAKEN;
+  localOutcome = (localPrediction == WN || localPrediction == SN) ? NOTTAKEN : TAKEN;
+  return localOutcome;
 }
 
 uint8_t get_gshare_prediction(uint32_t pc){
   uint32_t gBHTIndex = (ghistory ^ pc) & ((1 << ghistoryBits) - 1);
   uint8_t gPrediction = gshareBHT[gBHTIndex];
-  return (gPrediction == WN || gPrediction == SN) ? NOTTAKEN : TAKEN;
+   globalOutcome = (gPrediction == WN || gPrediction == SN) ? NOTTAKEN : TAKEN;
+  return globalOutcome;
 }
 
 uint8_t get_tournament_prediction(uint32_t pc){
@@ -289,7 +329,6 @@ uint8_t get_tournament_prediction(uint32_t pc){
 // Returning TAKEN indicates a prediction of taken; returning NOTTAKEN
 // indicates a prediction of not taken
 //
-uint32_t index = 0;
 uint8_t
 make_prediction(uint32_t pc)
 {
@@ -306,6 +345,7 @@ make_prediction(uint32_t pc)
     return get_tournament_prediction(pc);
 
   }else if(bpType == CUSTOM){
+    //return get_perceptron_prediction(pc);
     return get_neural_prediction(pc);
   }else{
     return NOTTAKEN;
@@ -323,8 +363,9 @@ train_predictor(uint32_t pc, uint8_t outcome)
   //
   //TODO: Implement Predictor training
   //
-
+  uint32_t localPHTIndex = pc & ((1 << pcIndexBits) - 1);
   if(bpType == TOURNAMENT){
+<<<<<<< HEAD
     //////printf("pc: %x\tghistory: %x\tprediction: %d\toutcome: %d \n", pc, ghistory, get_tournament_prediction(pc),outcome);
     uint8_t localPrediction = get_local_prediction(pc);
     uint8_t gsharePrediction = get_gshare_prediction(pc);
@@ -334,6 +375,10 @@ train_predictor(uint32_t pc, uint8_t outcome)
       }else{
         shift_prediction(&choicePT[pc & ((1 << pcIndexBits) - 1)], NOTTAKEN);
       }
+=======
+    if(localOutcome != globalOutcome){
+      shift_prediction(&choicePT[localPHTIndex], (localOutcome == outcome) ? TAKEN : NOTTAKEN);
+>>>>>>> 7c9edad... Implemented global history array
     }
   }
 
@@ -342,14 +387,11 @@ train_predictor(uint32_t pc, uint8_t outcome)
       break ;
 
     case TOURNAMENT:
-      shift_prediction(&localBHT[localPHT[pc & ((1 << pcIndexBits) - 1)]], outcome);
-      localPHT[pc & ((1 << pcIndexBits) - 1)] <<= 1;
-      localPHT[pc & ((1 << pcIndexBits) - 1)] &= ((1 << lhistoryBits) - 1);
-      if(outcome == TAKEN){
-        localPHT[pc & ((1 << pcIndexBits) - 1)]++;
-      }
+      shift_prediction(&(localBHT[localPHT[localPHTIndex]]), outcome);
+      localPHT[localPHTIndex] <<= 1;
+      localPHT[localPHTIndex] &= ((1 << lhistoryBits) - 1);
+      localPHT[localPHTIndex] |= outcome;
     case GSHARE:
-
       shift_prediction(&gshareBHT[(ghistory ^ pc) & ((1 << ghistoryBits) - 1)], outcome);
       ghistory <<= 1;
       if(outcome == TAKEN){
