@@ -7,7 +7,7 @@
 #define n_HISTORYLEN 19
 #define n_SATUATELEN 8
 
-#define n_MASK_PC(x) ((x * 17) % n_PCSIZE)
+#define n_MASK_PC(x) ((x * 19) % n_PCSIZE)
 
 
 int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
