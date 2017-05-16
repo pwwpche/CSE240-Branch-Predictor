@@ -61,7 +61,7 @@ handle_option(char *arg)
 // Reads a line from the input stream and extracts the
 // PC and Outcome of a branch
 //
-// Returns True if Successful 
+// Returns True if Successful
 //
 int
 read_branch(uint32_t *pc, uint8_t *outcome)
@@ -76,6 +76,7 @@ read_branch(uint32_t *pc, uint8_t *outcome)
 
   return 1;
 }
+
 
 int
 main(int argc, char *argv[])
@@ -119,6 +120,7 @@ main(int argc, char *argv[])
     if (prediction != outcome) {
       mispredictions++;
     }
+
     if (verbose != 0) {
       printf ("%d\n", prediction);
     }

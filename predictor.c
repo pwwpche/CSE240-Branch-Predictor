@@ -7,7 +7,10 @@
 //========================================================//
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 #include "predictor.h"
+#include "perceptron.h"
+#include "neural.h"
 
 //
 // TODO:Student Information
@@ -47,94 +50,7 @@ uint32_t globalhistory;
 uint8_t* globalBHT;
 uint8_t localOutcome, globalOutcome;
 
-// Data for path based neural predictor
-#define n_PCSIZE 399
-#define n_HISTORYLEN 19
-#define n_SATUATELEN 8
-
-#define MASK_PC(x) (x % n_PCSIZE)
-
-
-int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
-int8_t n_gHistory[n_HISTORYLEN];
-int32_t n_shiftWeight[n_HISTORYLEN + 1];
-uint32_t n_branches[n_HISTORYLEN + 1];
-
-uint8_t n_recentPrediction = NOTTAKEN;
-uint8_t n_needTrain = 0;
-int32_t n_trainTheta = 0;
-
-//------------------------------------//
-//        Predictor Functions         //
-//------------------------------------//
-
-
-
-//====================== Neural Path-based Predictor ==============================
-
-void neural_shift(int16_t* satuate, uint8_t same){
-  if(same){
-    if(*satuate != (1 << (n_SATUATELEN - 1) - 1)){
-      (*satuate)++;
-    }
-  }else{
-    if(*satuate != -(1 << (n_SATUATELEN - 1) )){
-      (*satuate)--;
-    }
-  }
-}
-
-
-void neural_path_init(){
-  //printf("neural: historylen: %d, PCSIZE: %d, saturate=%d\n", n_HISTORYLEN, n_PCSIZE, n_SATUATELEN);
-  n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
-  memset(n_W, 0, sizeof(int16_t) * n_PCSIZE * (n_HISTORYLEN + 1));
-  memset(n_shiftWeight, 0, sizeof(int32_t) * (n_HISTORYLEN + 1));
-  memset(n_branches, 0, sizeof(uint32_t) * (n_HISTORYLEN + 1));
-  memset(n_gHistory, 0, sizeof(uint8_t) * n_HISTORYLEN);
-}
-
-uint8_t get_neural_prediction(uint32_t pc){
-  int32_t out = (int32_t)(n_W[MASK_PC(pc)][0]) + n_shiftWeight[n_HISTORYLEN];
-  n_recentPrediction = (out >= 0) ? TAKEN : NOTTAKEN;
-  n_needTrain = (out < n_trainTheta && out > -n_trainTheta) ? 1 : 0;
-  return n_recentPrediction;
-}
-
-
-
-void neural_train(uint32_t pc, uint8_t outcome){
-
-  // Add this branch pc to branch history list
-  for(int i = n_HISTORYLEN; i >= 1 ; i--){
-    n_branches[i] = n_branches[i - 1];
-  }
-  n_branches[0] = MASK_PC(pc);
-
-  // Update cumulative array
-  for (int i = n_HISTORYLEN ; i >= 1 ; i-- ) {
-			n_shiftWeight[i] = n_shiftWeight[i - 1] +
-          ((outcome == TAKEN) ? n_W[MASK_PC(pc)][n_HISTORYLEN - i + 1] : -n_W[MASK_PC(pc)][n_HISTORYLEN - i + 1]);
-	}
-	n_shiftWeight[0] = 0;
-  // perceptron learning rule
-	if ((outcome != n_recentPrediction) || n_needTrain) {
-		neural_shift(&(n_W[MASK_PC(pc)][0]), outcome);
-    for (int i = 1 ; i <= n_HISTORYLEN ; i++ ) {
-  		uint32_t k = MASK_PC(n_branches[i]);
-      uint8_t predict = n_gHistory[i-1];
-			neural_shift(&(n_W[k][i]), (outcome == predict));
-		}
-	}
-
-
-  // Update global history register
-  for(int i = n_HISTORYLEN - 1; i > 0 ; i--){
-    n_gHistory[i] = n_gHistory[i-1];
-  }
-  n_gHistory[0] = outcome;
-
-}
+#define USE_NEURAL
 
 
 // Shifting
@@ -240,8 +156,12 @@ init_predictor()
       memset(gshareBHT, WN, (1 << ghistoryBits) * sizeof(uint8_t));
       break;
     case CUSTOM:
-
+#ifdef USE_NEURAL
       neural_path_init();
+#else
+      perceptron_init();
+#endif
+
     default:
       break;
   }
@@ -271,7 +191,11 @@ make_prediction(uint32_t pc)
     return get_tournament_prediction(pc);
 
   }else if(bpType == CUSTOM){
+#ifdef USE_NEURAL
     return get_neural_prediction(pc);
+#else
+    return get_perceptron_prediction(pc);
+#endif
   }else{
     return NOTTAKEN;
   }
@@ -301,7 +225,11 @@ train_predictor(uint32_t pc, uint8_t outcome)
       ghistory |= outcome;
       break;
     case CUSTOM:
+#ifdef USE_NEURAL
       neural_train(pc, outcome);
+#else
+      perceptron_train(pc, outcome);
+#endif
     default:
       break;
   }

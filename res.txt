@@ -1,0 +1,74 @@
+
+int_1:
+Branches:           3771697
+Incorrect:           610680
+Misprediction Rate:  16.191
+Branches:           3771697
+Incorrect:           335507
+Misprediction Rate:   8.895
+neural: historylen: 19, PCSIZE: 427, saturate=8
+used: 210/427
+Branches:           3771697
+Incorrect:           279998
+Misprediction Rate:   7.424
+======
+int_2:
+Branches:           3755315
+Incorrect:            18638
+Misprediction Rate:   0.496
+Branches:           3755315
+Incorrect:            12022
+Misprediction Rate:   0.320
+neural: historylen: 19, PCSIZE: 427, saturate=8
+used: 134/427
+Branches:           3755315
+Incorrect:            11594
+Misprediction Rate:   0.309
+fp_1:
+Branches:           1546797
+Incorrect:            15452
+Misprediction Rate:   0.999
+Branches:           1546797
+Incorrect:            15359
+Misprediction Rate:   0.993
+neural: historylen: 19, PCSIZE: 427, saturate=8
+used: 36/427
+Branches:           1546797
+Incorrect:            12730
+Misprediction Rate:   0.823
+fp_2:
+Branches:           2422049
+Incorrect:            81446
+Misprediction Rate:   3.363
+Branches:           2422049
+Incorrect:             9973
+Misprediction Rate:   0.412
+neural: historylen: 19, PCSIZE: 427, saturate=8
+used: 38/427
+Branches:           2422049
+Incorrect:            23358
+Misprediction Rate:   0.964
+mm_1:
+Branches:           3014850
+Incorrect:           237693
+Misprediction Rate:   7.884
+Branches:           3014850
+Incorrect:            24324
+Misprediction Rate:   0.807
+neural: historylen: 19, PCSIZE: 427, saturate=8
+used: 250/427
+Branches:           3014850
+Incorrect:            89240
+Misprediction Rate:   2.960
+mm_2:
+Branches:           2563897
+Incorrect:           280387
+Misprediction Rate:  10.936
+Branches:           2563897
+Incorrect:           150155
+Misprediction Rate:   5.857
+neural: historylen: 19, PCSIZE: 427, saturate=8
+used: 413/427
+Branches:           2563897
+Incorrect:           163927
+Misprediction Rate:   6.394
