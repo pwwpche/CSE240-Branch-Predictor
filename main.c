@@ -111,18 +111,27 @@ main(int argc, char *argv[])
   uint32_t pc = 0;
   uint8_t outcome = NOTTAKEN;
 
+  uint8_t falsePrediction = 0;
   // Reach each branch from the trace
   while (read_branch(&pc, &outcome)) {
     num_branches++;
-
+    if(num_branches > 10){
+      //break;
+    }
     // Make a prediction and compare with actual outcome
     uint8_t prediction = make_prediction(pc);
     if (prediction != outcome) {
       mispredictions++;
+      falsePrediction++;
     }
 
     if (verbose != 0) {
       printf ("%d\n", prediction);
+    }
+
+    if(num_branches % 1000 == 0){
+      //printf("%d\n", falsePrediction);
+      falsePrediction = 0;
     }
 
     // Train the predictor

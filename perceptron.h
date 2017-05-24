@@ -22,7 +22,7 @@ uint8_t p_need_train = 0;
 
 void perceptron_shift(int16_t* satuate, uint8_t same){
   if(same){
-    if(*satuate != (1 << (p_SATUATELEN - 1) - 1)){
+    if(*satuate != ((1 << (p_SATUATELEN - 1)) - 1)){
       (*satuate)++;
     }
   }else{

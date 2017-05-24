@@ -1,18 +1,26 @@
 #include <stdio.h>
 #include <string.h>
-#include <math.h>
 
 // Data for path based neural predictor
-#define n_PCSIZE 401
+#define n_PCSIZE 427
 #define n_HISTORYLEN 19
-#define n_SATUATELEN 8
+#define n_WEIGHTLEN 8
 
-#define n_MASK_PC(x) ((x * 19) % n_PCSIZE)
+#define n_MASK_PC(x) ((x * 137) % n_PCSIZE)
+
+
+//Items usage:
+// fp_1: 36
+// fp_2: 42
+// mm_1: 357
+// mm_2: 1135
+// int_1: 292
+// int_2: 161
 
 
 int16_t n_W[n_PCSIZE][n_HISTORYLEN + 1];
 int8_t n_gHistory[n_HISTORYLEN];          // 1 * n_HISTORYLEN
-int32_t n_shiftWeight[n_HISTORYLEN + 1];  // (log(n_HISTORYLEN + 1) + n_SATUATELEN) * (n_HISTORYLEN + 1)
+int32_t n_shiftWeight[n_HISTORYLEN + 1];  // (log(n_HISTORYLEN + 1) + n_WEIGHTLEN) * (n_HISTORYLEN + 1)
 uint32_t n_branches[n_HISTORYLEN + 1];    // log(PCSIZE) * (n_HISTORYLEN + 1)
 
 uint8_t n_recentPrediction = NOTTAKEN;
@@ -31,13 +39,15 @@ int32_t n_conflictCount[n_PCSIZE];
 
 //====================== Neural Path-based Predictor ==============================
 
+
+
 void neural_shift(int16_t* satuate, uint8_t same){
   if(same){
-    if(*satuate != (1 << (n_SATUATELEN - 1) - 1)){
+    if(*satuate != ((1 << (n_WEIGHTLEN - 1)) - 1  ) ){
       (*satuate)++;
     }
   }else{
-    if(*satuate != -(1 << (n_SATUATELEN - 1) )){
+    if(*satuate != -(1 << (n_WEIGHTLEN - 1) )){
       (*satuate)--;
     }
   }
@@ -45,7 +55,7 @@ void neural_shift(int16_t* satuate, uint8_t same){
 
 
 void neural_path_init(){
-  printf("neural: historylen: %d, PCSIZE: %d, saturate=%d\n", n_HISTORYLEN, n_PCSIZE, n_SATUATELEN);
+  //printf("neural: historylen: %d, PCSIZE: %d, saturate=%d\n", n_HISTORYLEN, n_PCSIZE, n_WEIGHTLEN);
   n_trainTheta = (int32_t)(2.14 * (n_HISTORYLEN + 1) + 20.58);
   n_trainTheta0 = n_trainTheta;
   memset(n_W, 0, sizeof(int16_t) * n_PCSIZE * (n_HISTORYLEN + 1));
@@ -71,48 +81,50 @@ uint8_t get_neural_prediction(uint32_t pc){
 }
 
 
-uint32_t index = 0;
 uint32_t n_additionalErr = 50;
 void neural_train(uint32_t pc, uint8_t outcome){
+  //
+  //
+  // index++;
+  // if(outcome != n_recentPrediction){
+  //     n_additionalErr++;
+  // }
+  //
+  // if(index % 300 == 0){
+  //   float current_rate = 300 * ((float)n_additionalErr / 300.0);
+  //   // n_trainTheta = (current_rate > 8.0) ?
+  //   //                   n_trainTheta0 / (log10(current_rate) / log10(8.0)) :
+  //   //                   n_trainTheta0;
+  //
+  //   n_additionalErr = 0;
+  // }
+  //
+  // if(index <= 2500000){
+  //
+  //   if(n_usedSlots[n_MASK_PC(pc)] == 0){
+  //     n_usedSlots[n_MASK_PC(pc)] = pc;
+  //   }else if(n_usedSlots[n_MASK_PC(pc)] != pc){
+  //
+  //     n_conflictCount[n_MASK_PC(pc)]++;
+  //   }
+  //
+  //   if(index < 2500000){
+  //       n_usageCount[n_MASK_PC(pc)]++;
+  //   }else{
+  //     int used = 0;
+  //     for(int i = 0 ; i < n_PCSIZE ; i++){
+  //       //printf("i: %d\tusage: %d\tconflict: %d\n", i, n_usageCount[i], n_conflictCount[i]);
+  //       if(n_usageCount[i] > 512){
+  //         used++;
+  //         printf("%d\t%d\n", i, n_usageCount[i]);
+  //       }
+  //     }
+  //     printf("used: %d/%d\n", used, n_PCSIZE);
+  //   }
+  //
+  // }
 
 
-  index++;
-  if(outcome != n_recentPrediction){
-      n_additionalErr++;
-  }
-
-  if(index % 300 == 0){
-    float current_rate = 300 * ((float)n_additionalErr / 300.0);
-    // n_trainTheta = (current_rate > 8.0) ?
-    //                   n_trainTheta0 / (log10(current_rate) / log10(8.0)) :
-    //                   n_trainTheta0;
-
-    n_additionalErr = 0;
-  }
-
-  if(index <= 200000){
-
-    if(n_usedSlots[n_MASK_PC(pc)] == 0){
-      n_usedSlots[n_MASK_PC(pc)] = pc;
-    }else if(n_usedSlots[n_MASK_PC(pc)] != pc){
-
-      n_conflictCount[n_MASK_PC(pc)]++;
-    }
-
-    if(index < 200000){
-        n_usageCount[n_MASK_PC(pc)]++;
-    }else{
-      int used = 0;
-      for(int i = 0 ; i < n_PCSIZE ; i++){
-        //printf("i: %d\tusage: %d\tconflict: %d\n", i, n_usageCount[i], n_conflictCount[i]);
-        if(n_usageCount[i] > 100){
-          used++;
-        }
-      }
-      printf("used: %d/%d\n", used, n_PCSIZE);
-    }
-
-  }
 
 
 
