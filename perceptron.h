@@ -41,7 +41,7 @@ void perceptron_init(){
 
 
 
-uint8_t get_perceptron_prediction(uint32_t pc){
+uint8_t perceptron_predict(uint32_t pc){
   uint32_t index = p_MASK_PC(pc);
   int16_t out = p_W[index][0];
 

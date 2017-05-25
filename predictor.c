@@ -159,9 +159,8 @@ init_predictor() {
             break;
         case CUSTOM:
 
-            neural_path_init();
-
-            //tage_init();
+            //neural_path_init();
+            tage_init();
             //wp_init();
             //perceptron_init();
 
@@ -194,11 +193,11 @@ make_prediction(uint32_t pc) {
 
     } else if (bpType == CUSTOM) {
 
-        return get_neural_prediction(pc);
+        //return get_neural_prediction(pc);
 
-        //return get_tage_prediction(pc);
+        return tage_predict(pc);
         //return wp_perdict(pc);
-        //return get_perceptron_prediction(pc);
+        //return perceptron_predict(pc);
 
     } else {
         return NOTTAKEN;
@@ -228,8 +227,8 @@ train_predictor(uint32_t pc, uint8_t outcome) {
             ghistory |= outcome;
             break;
         case CUSTOM:
-            neural_train(pc, outcome);
-            //tage_train(pc, outcome);
+            //neural_train(pc, outcome);
+            tage_train(pc, outcome);
             //wp_train(pc, outcome);
             //perceptron_train(pc, outcome);
         default:

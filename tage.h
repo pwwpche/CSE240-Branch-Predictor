@@ -27,8 +27,7 @@
 
 // i = 0 ... NUM_BANKS - 1
 // geo_i = (int) (MIN_LEN * ((MAX_LEN / MIN_LEN) ^ (i / (NUM_BANKS - 1))) + 0.5)
-const uint8_t GEOMETRICS[NUM_BANKS] = {5, 9, 15, 26, 44, 76, 131};
-
+const uint8_t GEOMETRICS[NUM_BANKS] = {130, 76, 44, 26, 15, 9, 5};
 
 // SaturateCounter is LEN_COUNTS=3 bits
 // Tag is LEN_TAG = 12 bits
@@ -76,10 +75,11 @@ uint8_t t_getBimodalPrediction(uint32_t pc){
 
 void t_updateCompressed(CompressedHistory* history, uint8_t* global){
     uint32_t newCompressed = (history->compressed << 1) + global[0];
-    newCompressed ^= ((newCompressed & (1 << history->targetLength)) >> history->targetLength);
     newCompressed ^=  global[history->geometryLength] << (history->geometryLength % history->targetLength);
+    newCompressed ^= (newCompressed >> history->targetLength);
     newCompressed &= (1 << history->targetLength) - 1;
     history->compressed = newCompressed;
+
 }
 
 //  tag computation
@@ -176,7 +176,7 @@ void tage_init(){
 
 
 
-uint8_t get_tage_prediction(uint32_t pc){
+uint8_t tage_predict(uint32_t pc){
 
     int tagResult[NUM_BANKS];
 
@@ -267,7 +267,7 @@ void tage_train(uint32_t pc, uint8_t outcome) {
     // try to allocate a  new entries only if prediction was wrong
     if (need_allocate) {
         // is there some "unuseful" entry to allocate
-        int8_t min = 10;
+        int8_t min = 127;
         for (int i = 0; i < primaryBank; i++) {
             if (tageBank[i].entry[bankGlobalIndex[i]].usefulness < min){
                 min = tageBank[i].entry[bankGlobalIndex[i]].usefulness;
