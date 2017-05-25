@@ -13,14 +13,51 @@
 #define NOTTAKEN  0
 #define TAKEN     1
 
+/*  Implementation of TAGE Predictor based on:
+ *  A case for (partially)-tagged geometric history length predictors
+ *  Andre Seznec, IRISA
+ *  http://www.irisa.fr/caps/people/seznec/JILP-COTTAGE.pdf
+ *  http://www.irisa.fr/caps/
+ *  with slight modifications.
+ *
+ *  Configuration:
+ *
+ *  1. 1x basic bimodal predictor, There are BIMODAL_SIZE = 3000 entries in it.
+ *     Size for bimodal predictor: 3 * (3000) = 9000 bits.
+ *
+ *  2. 7x TAGE tables
+ *     (1 << LEN_GLOBAL) = (1 << 9) = 512 items for each table
+ *     Each entry has a 3 bit saturate counter, 2 bit usefulness counter, 10 bit tag.
+ *     Total length : 3 + 2 + 10 = 15 bit
+ *     Total space for entries: 512 * 15 = 7680 bits.
+ *     Each table has 3 CompressedHistory, (8 + 8 + 32) = 48 bit.
+ *     Total size: 7 * (48 + 15 + 7680) = 54201 bits
+ *
+ *
+ *  3. 1x Global History Table
+ *     MAX_HISTORY_LEN = 131 entries, 1 bit per entry
+ *     Total space: 131 bits.
+ *
+ *  4. BankGlobalIndex:
+ *     Store the entry index to each bank.
+ *     Each entry consumes LEN_GLOBAL = 9 bit.
+ *     Total space: 9 * 7 = 63 bits.
+ *
+ *
+ *  Total size:
+ *     9000 + 54201 + 131 + 63 = 63395 bits.
+ *
+ */
+
+
 // 7 Banks plus a basic bimodal predictor
 #define NUM_BANKS 7
 
-#define LEN_BIMODAL 13
-#define BIMODAL_INDEX(pc) (pc & ((1 << (LEN_BIMODAL)) - 1))
+#define BIMODAL_SIZE 3000
+#define BIMODAL_INDEX(pc) (pc % BIMODAL_SIZE)
 
 #define LEN_GLOBAL 9
-#define LEN_TAG 12
+#define LEN_TAG 10
 #define LEN_COUNTS 3
 #define MIN_HISTORY_LEN 5
 #define MAX_HISTORY_LEN 131
@@ -29,8 +66,9 @@
 // geo_i = (int) (MIN_LEN * ((MAX_LEN / MIN_LEN) ^ (i / (NUM_BANKS - 1))) + 0.5)
 const uint8_t GEOMETRICS[NUM_BANKS] = {130, 76, 44, 26, 15, 9, 5};
 
+
 // SaturateCounter is LEN_COUNTS=3 bits
-// Tag is LEN_TAG = 12 bits
+// Tag is LEN_TAG = 10 bits
 // Usefulness is 2 bits
 typedef struct BankEntryStruct{
     int8_t saturateCounter;
@@ -45,14 +83,14 @@ typedef struct CompressedStruct{
 } CompressedHistory ;
 
 typedef struct BankStruct{
-    int geometry;
+    int geometry;       //This is predefined by GEOMETRICS and never changes, so does not count into total number of bits used.
     BankEntry entry[1 << LEN_GLOBAL];
     CompressedHistory indexCompressed;
     CompressedHistory tagCompressed[2];
 
 } Bank;
 
-int8_t t_bimodalPredictor[1 << LEN_BIMODAL];    // Bimodal Predictor table
+int8_t t_bimodalPredictor[BIMODAL_SIZE];    // Bimodal Predictor table
 uint8_t t_globalHistory[MAX_HISTORY_LEN];             // Global History Register
 uint32_t t_pathHistory;                               // Path History Register
 
@@ -64,15 +102,16 @@ uint8_t alternatePrediction = NOTTAKEN;
 uint8_t lastPrediction = NOTTAKEN;
 
 uint32_t bankGlobalIndex[NUM_BANKS];
-uint32_t instrIndex = 0;
+
 int8_t useAlternate = 8;
 
 
-
+// Bimodal prediction. If tag miss in every table, use bimodal predictor result.
 uint8_t t_getBimodalPrediction(uint32_t pc){
     return (uint8_t) ((t_bimodalPredictor[BIMODAL_INDEX(pc)] > 1) ? TAKEN : NOTTAKEN);
 }
 
+// Update the compressed history of each TAGE bank.
 void t_updateCompressed(CompressedHistory* history, uint8_t* global){
     uint32_t newCompressed = (history->compressed << 1) + global[0];
     newCompressed ^=  global[history->geometryLength] << (history->geometryLength % history->targetLength);
@@ -82,13 +121,13 @@ void t_updateCompressed(CompressedHistory* history, uint8_t* global){
 
 }
 
-//  tag computation
+// Tag in global TAGE table entry computation
 uint16_t generateGlobalEntryTag(uint32_t pc, int bankIndex) {
     int tag = pc ^(tageBank[bankIndex].tagCompressed[0].compressed) ^((tageBank[bankIndex].tagCompressed[1].compressed) << 1);
     return (uint16_t) (tag & ((1 << (LEN_TAG - ((bankIndex + (NUM_BANKS & 1)) / 2))) - 1));
-    //does not use the same length for all the components
 }
 
+// Update saturate counter.
 void updateSaturate(int8_t *saturate, int taken, int nbits) {
     if (taken) {
         if ((*saturate) < ((1 << (nbits - 1)) - 1)) {
@@ -101,6 +140,7 @@ void updateSaturate(int8_t *saturate, int taken, int nbits) {
     }
 }
 
+// Update saturate counter using min-max constraints.
 void updateSaturateMinMax(int8_t *saturate, int taken, int min, int max) {
     if (taken) {
         if ((*saturate) < max) {
@@ -113,9 +153,9 @@ void updateSaturateMinMax(int8_t *saturate, int taken, int min, int max) {
     }
 }
 
+// Function for compuation of entry index in each bank.
 int F(int A, int size, int bank) {
     int A1, A2;
-
     A = A & ((1 << size) - 1);
     A1 = (A & ((1 << LEN_GLOBAL) - 1));
     A2 = (A >> LEN_GLOBAL);
@@ -124,7 +164,6 @@ int F(int A, int size, int bank) {
     A = ((A << bank) & ((1 << LEN_GLOBAL) - 1)) + (A >> (LEN_GLOBAL - bank));
     return (A);
 }
-
 uint32_t getGlobalIndex(uint32_t pc, int bankIdx) {
     int index;
     if (tageBank[bankIdx].geometry >= 16)
@@ -142,12 +181,13 @@ uint32_t getGlobalIndex(uint32_t pc, int bankIdx) {
 
 }
 
+
 void tage_init(){
-    memset(t_bimodalPredictor, 1, sizeof(uint8_t) * (1 << LEN_BIMODAL));
+    memset(t_bimodalPredictor, 1, sizeof(uint8_t) * BIMODAL_SIZE);
     for(uint32_t i = 0 ; i < NUM_BANKS ; i++){
         tageBank[i].geometry = GEOMETRICS[i];
 
-        //TODO: Reconfirm length of compressed history.
+        // Initialize PPM-based compressed global history
         tageBank[i].indexCompressed.compressed = 0;
         tageBank[i].indexCompressed.geometryLength = GEOMETRICS[i];
         tageBank[i].indexCompressed.targetLength = LEN_GLOBAL;
@@ -159,6 +199,7 @@ void tage_init(){
         tageBank[i].tagCompressed[1].geometryLength = GEOMETRICS[i];
         tageBank[i].tagCompressed[1].targetLength = (int8_t) (LEN_TAG - ((i + (NUM_BANKS & 1)) / 2) - 1);
 
+        // Initialize entries in TAGE banks
         for(uint32_t j = 0 ; j < (1 << LEN_GLOBAL) ; j++){
             tageBank[i].entry[j].saturateCounter = 0;
             tageBank[i].entry[j].tag = 0;
@@ -167,9 +208,9 @@ void tage_init(){
 
     }
 
+
     memset(bankGlobalIndex, 0, sizeof(uint32_t) * NUM_BANKS);
     memset(t_globalHistory, 0, sizeof(uint8_t) * MAX_HISTORY_LEN);
-    instrIndex = 0;
     t_pathHistory = 0;
     srand((unsigned int) time(NULL));
 }
@@ -180,6 +221,7 @@ uint8_t tage_predict(uint32_t pc){
 
     int tagResult[NUM_BANKS];
 
+    // Get tag in each bank and indices for entry in each bank
     for(uint32_t i = 0 ; i < NUM_BANKS ; i++){
         tagResult[i] = generateGlobalEntryTag(pc, i);
         bankGlobalIndex[i] = getGlobalIndex(pc, i);
@@ -190,6 +232,8 @@ uint8_t tage_predict(uint32_t pc){
     primaryBank = NUM_BANKS;
     alternateBank = NUM_BANKS;
 
+    // Look for primary bank and alternate bank.
+    // Primary bank gives the final result. If primary bank is not found, use alternate bank.
     for(uint8_t i = 0 ; i < NUM_BANKS ; i++){
         if(tageBank[i].entry[bankGlobalIndex[i]].tag == tagResult[i]){
             primaryBank = i; break;
@@ -210,9 +254,9 @@ uint8_t tage_predict(uint32_t pc){
         }else {
             alternatePrediction = t_getBimodalPrediction(pc);
         }
-        //if the entry is recognized as a newly allocated entry and
-        //counter PWIN is negative use the alternate prediction
-        // see section 3.2.4
+
+        // Detecting newly allocated entries.
+        // They are not quite useful in some circumenstances.
         if((tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]].saturateCounter != 0) ||
            (tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]].saturateCounter != 1) ||
            (tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]].usefulness != 0) ||
@@ -236,22 +280,23 @@ uint8_t tage_predict(uint32_t pc){
 
 void tage_train(uint32_t pc, uint8_t outcome) {
 
+    // Update the model under false prediction in TAGE banks.
     int need_allocate = ((lastPrediction != outcome) & (primaryBank > 0));
 
     if (primaryBank < NUM_BANKS) {
         BankEntry entry = tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]];
+
+        // Find if this entry is newly allocated.
         int isNewAllocated =
                 (entry.saturateCounter == -1 || entry.saturateCounter == 0)
                 && (entry.usefulness == 0);
 
-        // is entry "pseudo-new allocated"
         if (isNewAllocated) {
             if (primaryPrediction == outcome)
                 need_allocate = 0;
 
-            // if the provider component  was delivering the correct prediction; no need to allocate a new entry
-            //even if the overall prediction was false
-            //see section 3.2.4
+            // If the provider component  was delivering the correct prediction; no need to allocate a new entry
+            // even if the overall prediction was false
             if (primaryPrediction != alternatePrediction) {
                 updateSaturate(&useAlternate, alternatePrediction == outcome, 4);
                 if (alternatePrediction == outcome) {
@@ -264,9 +309,10 @@ void tage_train(uint32_t pc, uint8_t outcome) {
         }
     }
 
-    // try to allocate a  new entries only if prediction was wrong
+    // Allocate new entry under false prediction.
     if (need_allocate) {
-        // is there some "unuseful" entry to allocate
+
+        // Find not-useful entries.
         int8_t min = 127;
         for (int i = 0; i < primaryBank; i++) {
             if (tageBank[i].entry[bankGlobalIndex[i]].usefulness < min){
@@ -275,13 +321,13 @@ void tage_train(uint32_t pc, uint8_t outcome) {
         }
 
         if (min > 0) {
-            //NO UNUSEFUL ENTRY TO ALLOCATE: age all possible targets, but do not allocate
+            // If there are no useful entry, make all corresponding entries a little bit not useful.
             for (int i = primaryBank - 1; i >= 0; i--) {
                 tageBank[i].entry[bankGlobalIndex[i]].usefulness--;
             }
         } else {
-            //YES: allocate one entry, but apply some randomness
-            // primaryBank I is twice more probable than primaryBank I-1
+            // Randomly allocate the entry to banks.
+            // Previous ones (banks associated with longer history) have higher priority.
             int Y = rand() & ((1 << (primaryBank - 1)) - 1);
             int X = primaryBank - 1;
             while ((Y & 1) != 0) {
@@ -289,7 +335,7 @@ void tage_train(uint32_t pc, uint8_t outcome) {
                 Y >>= 1;
             }
 
-
+            // Find the banks we are re-allocating.
             for (int i = X; i >= 0; i--) {
                 if (tageBank[i].entry[bankGlobalIndex[i]].usefulness == min) {
                     tageBank[i].entry[bankGlobalIndex[i]].tag = generateGlobalEntryTag(pc, i);
@@ -301,39 +347,28 @@ void tage_train(uint32_t pc, uint8_t outcome) {
 
         }
     }
-    //periodic reset of ubit: reset is not complete but bit by bit
-    instrIndex++;
-    if ((instrIndex & ((1 << 18) - 1)) == 0) {
-        int X = (instrIndex >> 18) & 1;
-        if ((X & 1) == 0)
-            X = 2;
-        for (int i = 0; i < NUM_BANKS; i++)
-            for (int j = 0; j < (1 << LEN_GLOBAL); j++)
-                tageBank[i].entry[j].usefulness &= X;
-    }
 
-    // update the counter that provided the prediction, and only this counter
+    // Update the counter that gives the prediction.
     if (primaryBank < NUM_BANKS) {
         updateSaturate(&(tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]].saturateCounter), outcome, LEN_COUNTS);
     } else {
         updateSaturateMinMax(&(t_bimodalPredictor[BIMODAL_INDEX(pc)]), outcome, 0, 3);
 
     }
-    // update the ubit counter
+
     if ((lastPrediction != alternatePrediction)) {
         updateSaturateMinMax(&(tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]].usefulness),
                              (lastPrediction == outcome),
                              0, 3);
     }
 
-    // update global history and cyclic shift registers
-    //use also history on unconditional branches as for OGEHL predictors.
-
+    // Update global history
     for(int i = MAX_HISTORY_LEN - 1 ; i > 0 ; i--){
         t_globalHistory[i] = t_globalHistory[ i - 1];
     }
     t_globalHistory[0] = outcome ? TAKEN : NOTTAKEN;
 
+    // Update compressed history
     t_pathHistory = (t_pathHistory << 1) + (pc & 1);
     t_pathHistory = (t_pathHistory & ((1 << 16) - 1));
     for (int i = 0; i < NUM_BANKS; i++) {
