@@ -23,7 +23,8 @@
  *  Configuration:
  *
  *  1. 1x basic bimodal predictor, There are BIMODAL_SIZE = 3000 entries in it.
- *     Size for bimodal predictor: 3 * (3000) = 9000 bits.
+ *     Each entry is a 2-bit saturate counter.
+ *     Size for bimodal predictor: 2 * (4099) = 8198 bits.
  *
  *  2. 7x TAGE tables
  *     (1 << LEN_GLOBAL) = (1 << 9) = 512 items for each table
@@ -45,7 +46,7 @@
  *
  *
  *  Total size:
- *     9000 + 54201 + 131 + 63 = 63395 bits.
+ *     8198 + 54201 + 131 + 63 = 62593 bits.
  *
  */
 
@@ -53,7 +54,8 @@
 // 7 Banks plus a basic bimodal predictor
 #define NUM_BANKS 7
 
-#define BIMODAL_SIZE 3000
+#define BIMODAL_SIZE 4099
+#define LEN_BIMODAL 2
 #define BIMODAL_INDEX(pc) (pc % BIMODAL_SIZE)
 
 #define LEN_GLOBAL 9
@@ -108,7 +110,7 @@ int8_t useAlternate = 8;
 
 // Bimodal prediction. If tag miss in every table, use bimodal predictor result.
 uint8_t t_getBimodalPrediction(uint32_t pc){
-    return (uint8_t) ((t_bimodalPredictor[BIMODAL_INDEX(pc)] > 1) ? TAKEN : NOTTAKEN);
+    return (uint8_t) ((t_bimodalPredictor[BIMODAL_INDEX(pc)] >= (1 << (LEN_BIMODAL / 2))) ? TAKEN : NOTTAKEN);
 }
 
 // Update the compressed history of each TAGE bank.
@@ -183,7 +185,7 @@ uint32_t getGlobalIndex(uint32_t pc, int bankIdx) {
 
 
 void tage_init(){
-    memset(t_bimodalPredictor, 1, sizeof(uint8_t) * BIMODAL_SIZE);
+    memset(t_bimodalPredictor, (1 << (LEN_BIMODAL / 2)) - 1, sizeof(uint8_t) * BIMODAL_SIZE);
     for(uint32_t i = 0 ; i < NUM_BANKS ; i++){
         tageBank[i].geometry = GEOMETRICS[i];
 
@@ -352,7 +354,7 @@ void tage_train(uint32_t pc, uint8_t outcome) {
     if (primaryBank < NUM_BANKS) {
         updateSaturate(&(tageBank[primaryBank].entry[bankGlobalIndex[primaryBank]].saturateCounter), outcome, LEN_COUNTS);
     } else {
-        updateSaturateMinMax(&(t_bimodalPredictor[BIMODAL_INDEX(pc)]), outcome, 0, 3);
+        updateSaturateMinMax(&(t_bimodalPredictor[BIMODAL_INDEX(pc)]), outcome, 0, (1 << LEN_BIMODAL) - 1);
 
     }
 
