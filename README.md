@@ -83,3 +83,19 @@ Size for bimodal predictor: 2 * (4099) = 8198 bits.
 
    8198 + 54201 + 131 + 63 + 70 = 62663 bits.
 
+
+### Performance
+```
+CUSTOM predictor's missprediction rate on benchmark: fp_1 (0.818/100.0)
+CUSTOM predictor's missprediction rate on benchmark: fp_2 (0.294/100.0)
+CUSTOM predictor's missprediction rate on benchmark: int_1 (6.898/100.0)
+CUSTOM predictor's missprediction rate on benchmark: int_2 (0.274/100.0)
+CUSTOM predictor's missprediction rate on benchmark: mm_1 (0.415/100.0)
+CUSTOM predictor's missprediction rate on benchmark: mm_2 (5.576/100.0)
+CUSTOM predictor's missprediction rate on benchmark: fp_3 (2.177/100.0)
+CUSTOM predictor's missprediction rate on benchmark: int_3 (1.119/100.0)
+CUSTOM predictor's missprediction rate on benchmark: mm_3 (10.861/100.0)
+CUSTOM predictor's missprediction rate on benchmark: serv_1 (3.875/100.0)
+CUSTOM predictor's missprediction rate on benchmark: serv_2 (1.819/100.0)
+CUSTOM predictor's missprediction rate on benchmark: serv_3 (1.605/100.0)
+```
